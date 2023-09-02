@@ -1,0 +1,74 @@
+name: m51
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 6'
+  push:
+    branches:
+      - HEAD
+  pull_request:
+    branches:
+      - HEAD
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_MAXSIZE: "2G"
+      CCACHE_HARDLINK: "true"
+      KERNEL_DEFCONFIG: "m51_defconfig"
+      KERNEL_CMDLINE: "ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- O=out"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+          fetch-depth: 100
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt install gcc-aarch64-linux-gnu -y
+          sudo apt install gcc-arm-linux-gnueabi -y
+          sudo apt install binutils make python3 ccache libssl-dev build-essential bc bison flex unzip libssl-dev ca-certificates xz-utils mkbootimg cpio device-tree-compiler git git-lfs jq -y
+          curl -Ls $(curl -s https://api.github.com/repos/ZyCromerZ/Clang/releases/latest | grep "browser_download_url" | cut -d '"' -f 4) -o clang.tar.gz
+          mkdir clang
+          tar -xzvf clang.tar.gz -C clang
+
+      - name: Get Time
+        id: get_time
+        run: echo "TIME=$(TZ=UTC-8 date +%m%d%H%M )" >> $GITHUB_ENV
+
+      - name: Build Kernel
+        run: |
+          set -x
+          export PATH=$(pwd)/proton-clang/bin/:$PATH
+          export CC=clang
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export ANDROID_MAJOR_VERSION=r
+          export KCFLAGS=-w
+          make $KERNEL_CMDLINE $KERNEL_DEFCONFIG CC="ccache clang"
+          make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc --all)
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 -b master AnyKernel3 && rm -rf AnyKernel3/.git AnyKernel3/.github AnyKernel3/LICENSE AnyKernel3/README.md
+          if [[ -f out/arch/arm64/boot/Image.gz ]]; then
+            cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+          fi
+          if [ -f out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb ]; then
+            cp out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb AnyKernel3/dtb
+          fi
+
+      - name: Upload Kerel
+        uses: actions/upload-artifact@v3
+        with:
+          name: m51
+          path: out/arch/arm64/*
