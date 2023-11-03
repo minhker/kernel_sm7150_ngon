@@ -58,24 +58,15 @@ jobs:
           make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc --all) LOCALVERSION="$CONFIG_LOCALVERSION"
           git clone --depth=1 https://github.com/iambinaytiwari/AnyKernel3 -b master AnyKernel3 && rm -rf AnyKernel3/.git AnyKernel3/.github AnyKernel3/LICENSE AnyKernel3/README.md
           IMAGE="$(pwd)/out/arch/arm64/boot/Image.gz"
-          DTB="$(pwd)/out/arch/arm64/dts/qcom/sdmmagpie.dtb"
+          DTB="$(pwd)/out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb"
           if [[ -f "$IMAGE" ]]; then
-            cd AnyKernel3  # Change directory to AnyKernel3
-            cp "$IMAGE" Image.gz
-            fi
+            cp "$IMAGE" AnyKernel3/Image.gz
+          fi
           if [[ -f "$DTB" ]]; then
-            cp "$DTB" dtb
+            cp "$DTB" AnyKernel3/dtb
+            cd AnyKernel3
             zip -r9 "RiseKernel$CONFIG_LOCALVERSION.zip" .  # Create new zip
             echo "Created RiseKernel$CONFIG_LOCALVERSION.zip"
-            # Set up GitHub API call to create a release and upload the asset
-            RELEASE_ID=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" -d "{\"tag_name\": \"$latest_version_of_Kernel_SU\", \"name\": \"$CONFIG_LOCALVERSION\", \"draft\": false}" "https://api.github.com/repos/iambinaytiwari/android_kernel_samsung_m51/releases" | jq -r .id)
-            echo "Created Release with ID $RELEASE_ID"
-            UPLOAD_URL=$(curl -s -H "Authorization: token ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/iambinaytiwari/android_kernel_samsung_m51/releases/$RELEASE_ID" | jq -r '.upload_url' | sed 's/{?name,label}//')
-            echo "Upload URL: $UPLOAD_URL"
-            ASSET_NAME="Kernel$CONFIG_LOCALVERSION.zip"
-            ASSET_PATH="Kernel$CONFIG_LOCALVERSION.zip"
-            curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" -H "Content-Type: application/zip" --data-binary @"$ASSET_PATH" "$UPLOAD_URL?name=$ASSET_NAME"
-            echo "Uploaded Asset: $ASSET_NAME"
           fi
 
       - name: Upload Kernel-SU
