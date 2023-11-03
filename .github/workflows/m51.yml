@@ -20,7 +20,6 @@ jobs:
       CCACHE_MAXSIZE: "2G"
       CCACHE_HARDLINK: "true"
       KERNEL_DEFCONFIG: "m51_defconfig"
-      KERNEL_CMDLINE: "ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$(pwd)/aarch64-linux-android-4.9/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$(pwd)/arm-linux-androideabi-4.9/bin/arm-linux-androideabi- O=out"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -33,8 +32,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -y
-          sudo apt install binutils make python3 ccache libssl-dev build-essential bc bison flex unzip libssl-dev ca-certificates xz-utils mkbootimg cpio device-tree-compiler git git-lfs jq -y
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 aarch64-linux-android-4.9
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 arm-linux-androideabi-4.9
           mkdir clang && curl https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r416183b1.tar.gz -RLO && tar -C clang/ -xf clang-*.tar.gz
@@ -45,11 +42,22 @@ jobs:
 
       - name: Build Kernel-With-KernelSU
         run: |
-          set -x
+          export KBUILD_BUILD_USER="iambinaytiwari"
+          export KBUILD_BUILD_HOST="workspace"
+          export PATH=$GITHUB_WORKSPACE/clang/bin:${PATH}
+          args="                  ARCH=arm64 \
+                                  O=../out \
+                                  CC=clang LD=ld.lld \
+                                  CLANG_TRIPLE=aarch64-linux-gnu- \
+                                  CROSS_COMPILE=$GITHUB_WORKSPACE/aarch64-linux-android-4.9/bin/aarch64-linux-android- \
+                                  CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/arm-linux-androideabi-4.9/bin/arm-linux-androideabi- "
+
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s
-          export PATH=$(pwd)/clang/bin/:$PATH
-          make $KERNEL_CMDLINE $KERNEL_DEFCONFIG CC="ccache clang"
-          make $KERNEL_CMDLINE -j$(nproc --all)
+          make ${args} $KERNEL_DEFCONFIG
+          make -j$(nproc --all) ${args}
+
+      - name: Package kernel
+        run: |
           git clone --depth=1 https://github.com/iambinaytiwari/AnyKernel3 -b master AnyKernel3 && rm -rf AnyKernel3/.git AnyKernel3/.github AnyKernel3/LICENSE AnyKernel3/README.md
           IMAGE="$(pwd)/out/arch/arm64/boot/Image.gz"
           DTB="$(pwd)/out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb"
