@@ -59,20 +59,14 @@ jobs:
       - name: Package kernel
         run: |
           git clone --depth=1 https://github.com/iambinaytiwari/AnyKernel3 -b master AnyKernel3 && rm -rf AnyKernel3/.git AnyKernel3/.github AnyKernel3/LICENSE AnyKernel3/README.md
-          IMAGE="$(pwd)/out/arch/arm64/boot/Image.gz"
-          DTB="$(pwd)/out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb"
-          if [[ -f "$IMAGE" ]]; then
-            cp "$IMAGE" AnyKernel3/Image.gz
-          fi
-          if [[ -f "$DTB" ]]; then
-            cp "$DTB" AnyKernel3/dtb
-            cd AnyKernel3
-            zip -r9 "RiseKernel$CONFIG_LOCALVERSION.zip" .  # Create new zip
-            echo "Created RiseKernel$CONFIG_LOCALVERSION.zip"
+          if [[ -f out/arch/arm64/boot/Image.gz-dtb ]]; then
+            cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+          if [ -f out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb ]; then
+            cp out/arch/arm64/boot/dts/qcom/sdmmagpie.dtb AnyKernel3/dtb
           fi
 
       - name: Upload Kernel-SU
         uses: actions/upload-artifact@v3
         with:
           name: RiseKernel-${{ steps.get_time.outputs.TIME }}
-          path: "AnyKernel3/*.zip"
+          path: "AnyKernel3/*"
