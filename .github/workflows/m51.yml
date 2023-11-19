@@ -37,9 +37,9 @@ jobs:
           sudo apt install gcc-aarch64-linux-gnu -y
           sudo apt install gcc-arm-linux-gnueabi -y
           sudo apt install binutils make python3 ccache libssl-dev build-essential bc bison flex unzip libssl-dev ca-certificates xz-utils mkbootimg cpio device-tree-compiler git git-lfs jq -y
-          curl -Ls $(curl -s https://api.github.com/repos/ZyCromerZ/Clang/releases/latest | grep "browser_download_url" | cut -d '"' -f 4) -o clang.tar.gz
-          mkdir clang
-          tar -xzvf clang.tar.gz -C clang
+          git clone https://gitlab.com/FPSensor/clang_r487747x prebuilts/clang/host/linux-x86/clang-r487747c --depth=1
+          make clean
+          make mrproper
 
       - name: Get Time
         id: get_time
@@ -52,8 +52,7 @@ jobs:
           rm -rf drivers/kernelsu
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
           latest_version_of_Kernel_SU=$(curl -s https://api.github.com/repos/tiann/KernelSU/releases/latest | jq -r '.tag_name')
-          CONFIG_LOCALVERSION="-RiseKernel-$latest_version_of_Kernel_SU-${{ steps.get_time.outputs.TIME }}"
-          export PATH=$(pwd)/clang/bin/:$PATH
+          export PATH=$PATH:$(pwd)/clang-r487747c/bin/
           make $KERNEL_CMDLINE $KERNEL_DEFCONFIG CC="ccache clang"
           make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc --all) LOCALVERSION="$CONFIG_LOCALVERSION"
           git clone --depth=1 https://github.com/iambinaytiwari/AnyKernel3 -b master AnyKernel3 && rm -rf AnyKernel3/.git AnyKernel3/.github AnyKernel3/LICENSE AnyKernel3/README.md
@@ -65,12 +64,10 @@ jobs:
           if [[ -f "$DTB" ]]; then
             cp "$DTB" AnyKernel3/dtb
             cd AnyKernel3
-            zip -r9 "RiseKernel$CONFIG_LOCALVERSION.zip" .  # Create new zip
-            echo "Created RiseKernel$CONFIG_LOCALVERSION.zip"
           fi
 
       - name: Upload Kernel-SU
         uses: actions/upload-artifact@v3
         with:
-          name: RiseKernel-KSU-${{ steps.get_time.outputs.TIME }}
-          path: "AnyKernel3/*.zip"
+          name: RiseKernel-KernelSU-${{ steps.get_time.outputs.TIME }}
+          path: "AnyKernel3/*"
